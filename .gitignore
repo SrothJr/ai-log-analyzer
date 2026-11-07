@@ -179,6 +179,9 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+
+# Local presentation material
+VIDEO_SCRIPT.md
 venv.bak/
 
 # Spyder project settings
