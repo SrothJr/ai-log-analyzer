@@ -1,22 +1,49 @@
 # AI Usage and Development Workflow
 
-## AI agent used
+## Development assistance
 
-- OpenCode with an AI coding agent was used for repository inspection, planning, implementation, debugging, test creation, and documentation.
-- The application itself uses only the local Qwen3.5 0.8B GGUF model through llama.cpp. No cloud AI API is used at runtime.
+I used OpenCode as a development assistant for repository inspection, planning, implementation, debugging, test creation, and documentation. I reviewed and tested the resulting changes throughout development. The application itself uses only the local Qwen3.5 0.8B GGUF model through llama.cpp; no cloud AI API is used at runtime.
 
-## How I controlled the AI workflow
+The tested llama.cpp invocation was:
 
-I used the AI agent iteratively rather than accepting the first implementation:
+```text
+./llama.cpp/build/bin/llama-server \
+  -m ./models/Qwen3.5-0.8B-Q4_0.gguf \
+  --host 127.0.0.1 \
+  --port 8080 \
+  -c 2048 \
+  -t 2 \
+  -ngl 0 \
+  -np 1 \
+  --reasoning off \
+  --reasoning-format none
+```
+
+Reasoning was explicitly disabled because the small output budget must leave room for valid JSON findings within the 2,048-token limit.
+
+The exact model used was `ggml-org/Qwen3.5-0.8B-GGUF/Qwen3.5-0.8B-Q4_0.gguf`, revision `4c11520cef475dd40ed72ec4a1e68b26721bd769`, SHA-256 `57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf`. The tested llama.cpp runtime was release `v0.9.0`, commit `cd959bae9`.
+
+The tested backend command was:
+
+```text
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+For recreation, `scripts/run_local.py` automates model download and verification, the pinned llama.cpp checkout/build, Python and npm dependency installation, and startup of llama.cpp, FastAPI, and Vite on Windows, macOS, Linux, and CachyOS. System Python, Git, CMake, a native C/C++ compiler toolchain, and Node.js/npm remain platform prerequisites.
+
+## Development workflow
+
+I used the assistant iteratively rather than accepting the first implementation:
 
 1. I supplied `Assessment_details.txt` and required the implementation to follow its CPU-only, 4-GB RAM, two-vCPU, 2,048-token limits.
-2. I selected FastAPI, SQLite, Vite React, llama.cpp, and Qwen3.5 0.8B before implementation.
+2. I selected FastAPI, SQLite, Vite React, llama.cpp, and Qwen3.5 0.8B before implementation, using the exact artifact `Qwen3.5-0.8B-Q4_0.gguf`.
 3. I required a staged plan, reproducible dependency files, testable chunks, progress tracking, and confirmation before major decisions.
 4. I required repository inspection before changes, no destructive Git operations, no commits, and preservation of the baseline job/results.
 5. After each implementation phase, I required automated tests and linting before continuing.
 6. I performed live curl-based testing and used the incorrect reports to redirect the implementation.
+7. I required the final README to reproduce the exact tested commands and a cross-platform launcher rather than relying on a shell-specific workflow.
 
-## Important corrections I made to the AI-generated work
+## Important corrections during development
 
 ### 1. Resource-limit correction
 

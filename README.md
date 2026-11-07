@@ -105,32 +105,38 @@ source backend/.venv/bin/activate.fish
 Use the approved Qwen3.5 0.8B GGUF artifact and place it at:
 
 ```text
-models/qwen3.5-0.8b-q4.gguf
+models/Qwen3.5-0.8B-Q4_0.gguf
 ```
 
-Record the exact artifact details before submission:
+The exact artifact used by this project is:
 
 ```text
 Model:        Qwen3.5 0.8B
-Quantization: <exact GGUF quantization>
-Source URL:   <approved download URL>
-File size:    <size>
-SHA-256:      <checksum>
-llama.cpp:    <tested commit>
+Repository:   ggml-org/Qwen3.5-0.8B-GGUF
+Filename:     Qwen3.5-0.8B-Q4_0.gguf
+Quantization: Q4_0
+File size:    563 MB
+Revision:     4c11520cef475dd40ed72ec4a1e68b26721bd769
+SHA-256:      57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf
+Download:     https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/4c11520cef475dd40ed72ec4a1e68b26721bd769/Qwen3.5-0.8B-Q4_0.gguf
 ```
 
 ```fish
-sha256sum models/qwen3.5-0.8b-q4.gguf
+sha256sum models/Qwen3.5-0.8B-Q4_0.gguf
 ```
 
 Do not commit the model file.
 
-## Build and run llama.cpp
+## Manual setup and execution
+
+The manual workflow is useful when reviewing or modifying one component at a time. The commands below are the exact commands used during development.
+
+### 1. Build llama.cpp
 
 ```fish
 git clone https://github.com/ggml-org/llama.cpp.git
 cd llama.cpp
-git checkout <tested-llama.cpp-commit>
+git checkout cd959bae9
 cmake -B build \
   -DGGML_NATIVE=OFF \
   -DGGML_CUDA=OFF \
@@ -140,16 +146,21 @@ cmake --build build --config Release -j2
 cd ..
 ```
 
+The tested llama.cpp release was `v0.9.0`, commit `cd959bae9`.
+
 Start the model server:
 
 ```fish
 ./llama.cpp/build/bin/llama-server \
-  -m ./models/qwen3.5-0.8b-q4.gguf \
+  -m ./models/Qwen3.5-0.8B-Q4_0.gguf \
   --host 127.0.0.1 \
   --port 8080 \
   -c 2048 \
   -t 2 \
-  -ngl 0
+  -ngl 0 \
+  -np 1 \
+  --reasoning off \
+  --reasoning-format none
 ```
 
 Verify the endpoints used by this project:
@@ -163,17 +174,40 @@ curl -X POST http://127.0.0.1:8080/tokenize \
 
 The application uses `/tokenize` and `/v1/chat/completions`. `/v1/models` is optional and a 404 there is harmless.
 
-## Backend setup
+### 2. Install and start the backend
 
 ```fish
 cd backend
 python -m venv .venv
+```
+
+Activate the environment in the shell you are using:
+
+```fish
+# CachyOS/Linux with Fish
 source .venv/bin/activate.fish
+```
+
+```bash
+# macOS/Linux with Bash or Zsh
+source .venv/bin/activate
+```
+
+```powershell
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+Then continue with:
+
+```text
 python -m pip install --upgrade pip
 pip install -r requirements-dev.txt
 cp ../.env.example .env
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+On Windows PowerShell, use `Copy-Item ..\.env.example .env` instead of `cp ../.env.example .env`.
 
 Check the backend:
 
@@ -194,9 +228,9 @@ backend/data/       SQLite database
 backend/uploads/    uploaded files
 ```
 
-## Frontend setup
+### 3. Install and start the frontend
 
-Open another terminal:
+Open a second terminal:
 
 ```fish
 cd frontend
@@ -213,6 +247,58 @@ Browser → FastAPI → llama.cpp
 ```
 
 The dashboard supports upload, start, progress polling, errors, severity grouping, evidence expansion, and final findings.
+
+## One-command recreation
+
+After installing the system prerequisites, run the complete workflow from the repository root:
+
+```text
+python scripts/run_local.py
+```
+
+The launcher works on Windows, macOS, Linux, and CachyOS. It automatically downloads and verifies the exact model, clones/checks out and builds llama.cpp at `cd959bae9`, creates the Python virtual environment, installs backend and frontend dependencies, creates `backend/.env`, resolves platform-specific executable paths, starts llama.cpp with the exact tested flags, waits for both health endpoints, starts FastAPI with `python -m uvicorn`, and then starts Vite.
+
+### Required system dependencies
+
+These must be installed before running the script because they are operating-system tools, not project packages:
+
+- Python 3 with the `venv` module
+- Git
+- CMake
+- A native C/C++ compiler toolchain
+- Node.js and npm
+
+Examples:
+
+- **CachyOS/Arch:** `sudo pacman -S --needed base-devel cmake git python python-pip python-venv nodejs npm`
+- **Windows:** Python, Git, CMake, Node.js/npm, and Visual Studio Build Tools with C++ workload
+- **macOS:** Xcode Command Line Tools, Homebrew Git/CMake/Node.js, and Python 3
+
+### Dependencies installed by the script
+
+The script installs or creates the project-specific dependencies automatically:
+
+- `backend/.venv/` and the packages in `backend/requirements-dev.txt`
+- `frontend/node_modules/` from `frontend/package.json`
+- The pinned llama.cpp source and CPU-only build
+- The exact Qwen3.5 GGUF model, including SHA-256 verification
+- `backend/.env` copied from `.env.example`
+
+The first run downloads approximately 563 MB and compiles llama.cpp, so it may take several minutes. Later runs reuse the downloaded model, build, virtual environment, and npm packages.
+
+For a backend-only run:
+
+```text
+python scripts/run_local.py --no-frontend
+```
+
+To skip setup when everything is already installed:
+
+```text
+python scripts/run_local.py --skip-setup
+```
+
+Stop all three processes with `Ctrl+C`.
 
 ## End-to-end test
 
@@ -306,31 +392,10 @@ Frontend lint: passed
 
 Backend tests mock llama.cpp; live testing requires the local model server.
 
-## GitHub submission hygiene
-
-Commit source, tests, and documentation. Do not commit:
-
-- `backend/.venv/`, `backend/data/`, or `backend/uploads/`
-- `frontend/node_modules/` or `frontend/dist/`
-- `models/*.gguf`
-- `llama.cpp/`
-- `.env` files, SQLite databases, or runtime logs
-- `VIDEO_SCRIPT.md` (local presentation material)
-
-Review before committing:
-
-```fish
-git status --short --ignored
-git diff --check
-```
-
-`.env.example`, source code, tests, `README.md`, `AI_USAGE.md`, `doc.md`, and `test-data/` remain submission-visible.
-
 ## Known limitations
 
 - One analysis job runs at a time.
 - The background task is process-local, not a distributed queue.
 - Automatic restart-resume is not implemented.
 - Inference speed depends on CPU performance and GGUF quantization.
-- The exact model URL, checksum, and tested llama.cpp commit must be recorded before submission.
 - Novel LLM findings require a source-level security signal as false-positive protection.
