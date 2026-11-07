@@ -58,6 +58,8 @@ cover/
 
 # Django stuff:
 *.log
+!test-data/
+!test-data/*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -157,6 +159,26 @@ env/
 venv/
 ENV/
 env.bak/
+
+# Project runtime data
+backend/data/
+backend/uploads/
+*.sqlite3
+*.sqlite3-journal
+
+# Local model files and llama.cpp build output
+models/*.gguf
+llama.cpp/
+llama.cpp/build/
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+
+# Local configuration
+.env
+.env.*
+!.env.example
 venv.bak/
 
 # Spyder project settings
